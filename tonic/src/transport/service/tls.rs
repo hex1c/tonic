@@ -3,7 +3,10 @@ use crate::transport::{
     server::{Connected, TlsStream},
     Certificate, Identity,
 };
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use rustls::{
+    crypto::CryptoProvider,
+    pki_types::{CertificateDer, PrivateKeyDer},
+};
 use std::{fmt, io::Cursor, sync::Arc};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_rustls::{
@@ -19,6 +22,7 @@ enum TlsError {
     H2NotNegotiated,
     CertificateParseError,
     PrivateKeyParseError,
+    CryptoProviderError,
 }
 
 #[derive(Clone)]
@@ -101,8 +105,16 @@ impl TlsAcceptor {
         identity: Identity,
         client_ca_root: Option<Certificate>,
         client_auth_optional: bool,
+        crypto_provider: Option<Arc<CryptoProvider>>,
     ) -> Result<Self, crate::Error> {
-        let builder = ServerConfig::builder();
+        let builder = crypto_provider.map_or_else(
+            || Ok(ServerConfig::builder()),
+            |provider| {
+                ServerConfig::builder_with_provider(provider)
+                    .with_safe_default_protocol_versions()
+                    .map_err(|_| TlsError::CryptoProviderError)
+            },
+        )?;
 
         let builder = match client_ca_root {
             None => builder.with_no_client_auth(),
@@ -179,6 +191,7 @@ impl fmt::Display for TlsError {
                 f,
                 "Error parsing TLS private key - no RSA or PKCS8-encoded keys found."
             ),
+            TlsError::CryptoProviderError => write!(f, "Error in crypto provider for tls"),
         }
     }
 }

@@ -1,8 +1,10 @@
+use rustls::crypto::CryptoProvider;
+
 use crate::transport::{
     service::TlsAcceptor,
     tls::{Certificate, Identity},
 };
-use std::fmt;
+use std::{fmt, sync::Arc};
 
 /// Configures TLS settings for servers.
 #[derive(Clone, Default)]
@@ -10,6 +12,7 @@ pub struct ServerTlsConfig {
     identity: Option<Identity>,
     client_ca_root: Option<Certificate>,
     client_auth_optional: bool,
+    crypto_provider: Option<Arc<CryptoProvider>>,
 }
 
 impl fmt::Debug for ServerTlsConfig {
@@ -25,6 +28,7 @@ impl ServerTlsConfig {
             identity: None,
             client_ca_root: None,
             client_auth_optional: false,
+            crypto_provider: None,
         }
     }
 
@@ -57,11 +61,22 @@ impl ServerTlsConfig {
         }
     }
 
+    /// sets the crypto provider to use for tls
+    /// # Default
+    /// uses `rutls` default provider
+    pub fn crypto_provider(self, crypto_provider: CryptoProvider) -> Self {
+        ServerTlsConfig {
+            crypto_provider: Some(crypto_provider.into()),
+            ..self
+        }
+    }
+
     pub(crate) fn tls_acceptor(&self) -> Result<TlsAcceptor, crate::Error> {
         TlsAcceptor::new(
             self.identity.clone().unwrap(),
             self.client_ca_root.clone(),
             self.client_auth_optional,
+            self.crypto_provider.clone(),
         )
     }
 }
