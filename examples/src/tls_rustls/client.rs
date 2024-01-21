@@ -9,7 +9,7 @@ use std::iter::FromIterator;
 
 use hyper::{client::HttpConnector, Uri};
 use pb::{echo_client::EchoClient, EchoRequest};
-use tokio_rustls::rustls::{ClientConfig, RootCertStore};
+use tokio_rustls::rustls::{pki_types::CertificateDer, ClientConfig, RootCertStore};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -19,11 +19,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut roots = RootCertStore::empty();
 
     let mut buf = std::io::BufReader::new(&fd);
-    let certs = rustls_pemfile::certs(&mut buf)?;
-    roots.add_parsable_certificates(&certs);
+    // let certs = rustls_pemfile::certs(&mut buf)?
+    //     .into_iter()
+    //     .map(CertificateDer::from)
+    //     .collect();
+    // roots.add_parsable_certificates(certs);
 
     let tls = ClientConfig::builder()
-        .with_safe_defaults()
         .with_root_certificates(roots)
         .with_no_client_auth();
 
@@ -38,7 +40,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let tls = tls.clone();
 
             hyper_rustls::HttpsConnectorBuilder::new()
-                .with_tls_config(tls)
+                .with_native_roots()
+                // .with_tls_config(tls)
                 .https_or_http()
                 .enable_http2()
                 .wrap_connector(s)

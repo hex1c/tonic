@@ -3,10 +3,7 @@ use crate::transport::{
     server::{Connected, TlsStream},
     Certificate, Identity,
 };
-use rustls::{
-    crypto::CryptoProvider,
-    pki_types::{CertificateDer, PrivateKeyDer},
-};
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use std::{fmt, io::Cursor, sync::Arc};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_rustls::{
@@ -102,20 +99,11 @@ pub(crate) struct TlsAcceptor {
 
 impl TlsAcceptor {
     pub(crate) fn new(
-        identity: Identity,
+        identity: Option<Identity>,
         client_ca_root: Option<Certificate>,
         client_auth_optional: bool,
-        crypto_provider: Option<Arc<CryptoProvider>>,
     ) -> Result<Self, crate::Error> {
-        let builder = crypto_provider.map_or_else(
-            || Ok(ServerConfig::builder()),
-            |provider| {
-                ServerConfig::builder_with_provider(provider)
-                    .with_safe_default_protocol_versions()
-                    .map_err(|_| TlsError::CryptoProviderError)
-            },
-        )?;
-
+        let builder = ServerConfig::builder();
         let builder = match client_ca_root {
             None => builder.with_no_client_auth(),
             Some(cert) => {
@@ -134,13 +122,17 @@ impl TlsAcceptor {
             }
         };
 
-        let (cert, key) = load_identity(identity)?;
+        let (cert, key) = load_identity(identity.unwrap())?;
         let mut config = builder.with_single_cert(cert, key)?;
 
         config.alpn_protocols.push(ALPN_H2.as_bytes().to_vec());
-        Ok(Self {
-            inner: Arc::new(config),
-        })
+        Ok(Self::with_server_config(config.into()))
+    }
+
+    pub(crate) fn with_server_config(server_config: Arc<ServerConfig>) -> Self {
+        Self {
+            inner: server_config,
+        }
     }
 
     pub(crate) async fn accept<IO>(&self, io: IO) -> Result<TlsStream<IO>, crate::Error>
