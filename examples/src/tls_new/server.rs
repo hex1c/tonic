@@ -83,12 +83,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         root_certs
     };
 
-    // let client_cerifier = WebPkiClientVerifier::builder(roots.into()).build()?.into();
+    let client_cerifier = WebPkiClientVerifier::builder(roots.into()).build()?.into();
 
     let mut server_config = ServerConfig::builder_with_provider(crypto_provider.into())
         .with_safe_default_protocol_versions()?
-        // .with_client_cert_verifier(client_cerifier)
-        .with_no_client_auth()
+        .with_client_cert_verifier(client_cerifier)
         .with_cert_resolver(cert_resolver);
 
     server_config.alpn_protocols = vec![b"h2".to_vec()];

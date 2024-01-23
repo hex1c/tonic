@@ -19,7 +19,6 @@ enum TlsError {
     H2NotNegotiated,
     CertificateParseError,
     PrivateKeyParseError,
-    CryptoProviderError,
 }
 
 #[derive(Clone)]
@@ -183,7 +182,6 @@ impl fmt::Display for TlsError {
                 f,
                 "Error parsing TLS private key - no RSA or PKCS8-encoded keys found."
             ),
-            TlsError::CryptoProviderError => write!(f, "Error in crypto provider for tls"),
         }
     }
 }
